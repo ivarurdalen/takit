@@ -1,0 +1,43 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=5000]
+      - id: check-toml
+      - id: check-yaml
+        args:
+          - --unsafe
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.12.5
+    hooks:
+      - id: ruff-check
+        types_or: [python, pyi, jupyter]
+        args:
+          [--fix, --show-fixes, --config=pyproject.toml, --unsafe-fixes]
+      - id: ruff-format
+        types_or: [python, pyi, jupyter]
+        args: [--config=pyproject.toml, --diff]
+
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1
+    hooks:
+      - id: nbstripout
+        args: [--keep-output]
+
+  - repo: local
+    hooks:
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+        args: [
+            "--reports=n", # Only display messages
+            "--score=n", # Don't display the score
+            "--rcfile=pyproject.toml",
+            "--init-hook=import sys; sys.setrecursionlimit(10000)",
+          ]
