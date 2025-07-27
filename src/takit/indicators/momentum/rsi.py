@@ -3,11 +3,9 @@ from pydantic import PositiveInt, validate_call
 
 from takit.validation import config_dict, ta_series_schema
 
-DEFAULT_RSI_LENGTH = 14
-
 
 @validate_call(config=config_dict)
-def relative_strength_index(series: pd.Series, length: PositiveInt = DEFAULT_RSI_LENGTH) -> pd.Series:
+def relative_strength_index(series: pd.Series, length: PositiveInt = 14) -> pd.Series:
     """
     Relative Strength Index (RSI).
 
