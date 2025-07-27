@@ -6,14 +6,10 @@ from pydantic import PositiveInt, StringConstraints, validate_call
 from takit.indicators.trend import ma
 from takit.validation import config_dict
 
-DEFAULT_MA_LENGTH = 140
-
 
 @validate_call(config=config_dict)
 def moving_average_deviation(
-    series: pd.Series,
-    length: PositiveInt = DEFAULT_MA_LENGTH,
-    mode: Annotated[str, StringConstraints(pattern="sma|ema")] = "sma",
+    series: pd.Series, length: PositiveInt = 140, mode: Annotated[str, StringConstraints(pattern="sma|ema")] = "sma"
 ) -> pd.Series:
     """
     Moving average deviation (MAD).
@@ -31,7 +27,7 @@ def moving_average_deviation(
     Returns:
         MAD values of the input series
     """
-    return (series / getattr(ma, mode)(series, length=length)).rename(f"MAD{length}")
+    return (series / getattr(ma, mode)(series, length=length)).rename(f"MAD_{mode.upper()}{length}")
 
 
 mad = moving_average_deviation

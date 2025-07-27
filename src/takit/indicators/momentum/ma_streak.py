@@ -7,14 +7,10 @@ from takit.indicators.trend import ma
 from takit.util.base import value_streak
 from takit.validation import config_dict
 
-DEFAULT_MA_LENGTH = 20
-
 
 @validate_call(config=config_dict)
 def moving_average_streak(
-    series: pd.Series,
-    length: PositiveInt = DEFAULT_MA_LENGTH,
-    mode: Annotated[str, StringConstraints(pattern="sma|ema")] = "sma",
+    series: pd.Series, length: PositiveInt = 20, mode: Annotated[str, StringConstraints(pattern="sma|ema")] = "sma"
 ) -> pd.DataFrame:
     """
     Moving average streak.

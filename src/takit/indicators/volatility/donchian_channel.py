@@ -30,3 +30,6 @@ def donchian_channel(ohlc: pd.DataFrame, length: PositiveInt = 20) -> pd.DataFra
     dc_low = ohlc["low"].rolling(window=length, min_periods=1).min().rename(f"DCL{length}")
     dc_mid = ((dc_high + dc_low) / 2).rename(f"DCM{length}")
     return pd.concat([dc_mid, dc_low, dc_high], axis=1)
+
+
+dc = donchian_channel
