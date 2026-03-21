@@ -3,7 +3,7 @@ from __future__ import annotations
 import narwhals as nw
 from pydantic import PositiveInt, validate_call
 
-from takit.indicators.trend import simple_moving_average
+from takit.indicators.trend.ma import simple_moving_average
 from takit.validation import config_dict, validate_ohlc
 
 
