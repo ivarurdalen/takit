@@ -1,20 +1,22 @@
+from __future__ import annotations
+
 from typing import Annotated
 
-import numpy as np
-import pandas as pd
+import narwhals as nw
 from pydantic import PositiveInt, StringConstraints, validate_call
 
 from takit.indicators.trend import ma
-from takit.validation import config_dict, ta_series_schema
+from takit.validation import config_dict, validate_series
 
 
+@nw.narwhalify(eager_only=True)
 @validate_call(config=config_dict)
 def trend_rider(
-    series: pd.Series,
+    series: nw.Series,
     fast_length: PositiveInt = 20,
     slow_length: PositiveInt = 50,
     mode: Annotated[str, StringConstraints(pattern="sma|ema")] = "sma",
-) -> pd.DataFrame:
+) -> nw.DataFrame:
     """
     Trend Rider.
 
@@ -35,20 +37,32 @@ def trend_rider(
     Returns:
         Trend values of the input series
     """
-    series = ta_series_schema(min_length=slow_length).validate(series)
-
-    df = series.to_frame()
+    series = validate_series(series, min_length=slow_length)
 
     fast_col = f"{mode.upper()}{fast_length}"
     slow_col = f"{mode.upper()}{slow_length}"
 
-    df[fast_col] = getattr(ma, mode)(series, fast_length)
-    df[slow_col] = getattr(ma, mode)(series, slow_length)
+    fast_ma = nw.from_native(getattr(ma, mode)(series, fast_length), series_only=True).alias(fast_col)
+    slow_ma = nw.from_native(getattr(ma, mode)(series, slow_length), series_only=True).alias(slow_col)
 
-    df["TR"] = np.where(
-        (df[fast_col] < series) & (df[slow_col] < series),
-        1,
-        np.where((df[fast_col] > series) & (df[slow_col] > series), -1, 0),
+    # Build DataFrame from series
+    native_ns = nw.get_native_namespace(series)
+    df = nw.from_native(
+        native_ns.DataFrame({
+            fast_col: fast_ma.to_native(),
+            slow_col: slow_ma.to_native(),
+            "_series": series.to_native(),
+        }),
+        eager_only=True,
     )
 
-    return df.iloc[:, -3:]
+    uptrend = (nw.col(fast_col) < nw.col("_series")) & (nw.col(slow_col) < nw.col("_series"))
+    downtrend = (nw.col(fast_col) > nw.col("_series")) & (nw.col(slow_col) > nw.col("_series"))
+    df = df.with_columns(
+        nw.when(uptrend)
+        .then(1)
+        .otherwise(nw.when(downtrend).then(-1).otherwise(0))
+        .alias("TR")
+    )
+
+    return df.select(fast_col, slow_col, "TR")

@@ -1,12 +1,15 @@
-import pandas as pd
+from __future__ import annotations
+
+import narwhals as nw
 from pydantic import PositiveInt, validate_call
 
 from takit.indicators.trend import simple_moving_average
-from takit.validation import config_dict, ohlc_schema
+from takit.validation import config_dict, validate_ohlc
 
 
+@nw.narwhalify(eager_only=True)
 @validate_call(config=config_dict)
-def average_true_range(ohlc: pd.DataFrame, length: PositiveInt = 14) -> pd.Series:
+def average_true_range(ohlc: nw.DataFrame, length: PositiveInt = 14) -> nw.Series:
     """
     Average True Range (ATR).
 
@@ -24,15 +27,20 @@ def average_true_range(ohlc: pd.DataFrame, length: PositiveInt = 14) -> pd.Serie
     Returns:
         ATR values of the input series
     """
-    ohlc = ohlc_schema(min_length=length).validate(ohlc)
+    ohlc = validate_ohlc(ohlc, min_length=length)
 
-    ohlc["high_low"] = ohlc["high"] - ohlc["low"]
-    ohlc["high_prev_close"] = (ohlc["high"] - ohlc["close"].shift(1)).abs()
-    ohlc["low_prev_close"] = (ohlc["low"] - ohlc["close"].shift(1)).abs()
+    result = ohlc.with_columns(
+        (nw.col("high") - nw.col("low")).alias("high_low"),
+        (nw.col("high") - nw.col("close").shift(1)).abs().alias("high_prev_close"),
+        (nw.col("low") - nw.col("close").shift(1)).abs().alias("low_prev_close"),
+    )
+    result = result.with_columns(
+        nw.max_horizontal("high_low", "high_prev_close", "low_prev_close").alias("true_range"),
+    )
 
-    ohlc["true_range"] = ohlc[["high_low", "high_prev_close", "low_prev_close"]].max(axis=1)
-
-    return simple_moving_average(ohlc["true_range"], length).rename(f"ATR{length}")
+    true_range = result.get_column("true_range")
+    sma_result = nw.from_native(simple_moving_average(true_range, length), series_only=True)
+    return sma_result.alias(f"ATR{length}")
 
 
 atr = average_true_range

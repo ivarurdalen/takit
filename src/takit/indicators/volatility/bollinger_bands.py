@@ -1,20 +1,23 @@
-import pandas as pd
+from __future__ import annotations
+
+import narwhals as nw
 from pydantic import NonNegativeInt, PositiveFloat, PositiveInt, validate_call
 
 from takit.indicators.trend import simple_moving_average
 from takit.validation import config_dict
 
 
+@nw.narwhalify(eager_only=True)
 @validate_call(config=config_dict)
 def bollinger_bands(
-    series: pd.Series,
+    series: nw.Series,
     length: PositiveInt = 20,
     n_std_dev: PositiveFloat = 2.0,
     ddof: NonNegativeInt = 0,
     *,
     include_width: bool = False,
     include_percentage: bool = False,
-) -> pd.DataFrame:
+) -> nw.DataFrame:
     """
     Bollinger Bands (BB).
 
@@ -42,18 +45,20 @@ def bollinger_bands(
     Returns:
         BBM, BBL, BBU columns. BBW and BBP columns if include_width and include_percentage are True.
     """
-    basis = simple_moving_average(series, length).rename(f"BBM{length}_{n_std_dev}")
-    std = series.rolling(window=length).std(ddof=ddof).rename(f"STD{length}")
-    lower_band = (basis - n_std_dev * std).rename(f"BBL{length}_{n_std_dev}")
-    upper_band = (basis + n_std_dev * std).rename(f"BBU{length}_{n_std_dev}")
+    basis = nw.from_native(simple_moving_average(series, length), series_only=True).alias(f"BBM{length}_{n_std_dev}")
+    std = series.rolling_std(window_size=length, ddof=ddof).alias(f"STD{length}")
+    lower_band = (basis - n_std_dev * std).alias(f"BBL{length}_{n_std_dev}")
+    upper_band = (basis + n_std_dev * std).alias(f"BBU{length}_{n_std_dev}")
 
     cols = [basis, lower_band, upper_band]
     if include_width:
-        cols.append(((upper_band - lower_band) / basis).rename(f"BBW{length}_{n_std_dev}"))
+        cols.append(((upper_band - lower_band) / basis).alias(f"BBW{length}_{n_std_dev}"))
     if include_percentage:
-        cols.append(((series - lower_band) / (upper_band - lower_band)).rename(f"BBP{length}_{n_std_dev}"))
+        cols.append(((series - lower_band) / (upper_band - lower_band)).alias(f"BBP{length}_{n_std_dev}"))
 
-    return pd.concat(cols, axis=1)
+    native_ns = nw.get_native_namespace(series)
+    data = {s.name: s.to_native() for s in cols}
+    return nw.from_native(native_ns.DataFrame(data), eager_only=True)
 
 
 bb = bollinger_bands

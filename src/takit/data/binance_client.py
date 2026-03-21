@@ -1,5 +1,6 @@
-import pandas as pd
-from binance.spot import Spot
+from __future__ import annotations
+
+from datetime import datetime, timezone
 
 from takit.util.date import to_milliseconds
 
@@ -8,9 +9,11 @@ DEFAULT_LIMIT = 1000
 
 class BinanceClient:
     def __init__(self):
+        from binance.spot import Spot
+
         self.client = Spot()
 
-    def get_df(self, symbol: str, interval: str, start: str, end: str) -> pd.DataFrame:
+    def get_df(self, symbol: str, interval: str, start: str, end: str):
         """
         Get a DataFrame of the klines for the given symbol and interval.
 
@@ -34,9 +37,11 @@ class BinanceClient:
 
         return self._wrangle_data(symbol, data)
 
-    def _wrangle_data(self, symbol: str, data: list[list]) -> pd.DataFrame:
+    def _wrangle_data(self, symbol: str, data: list[list]):
+        import pandas as pd
+
         data = [candle[:6] for candle in data]  # Only keep the first 6 columns
-        data = [[pd.Timestamp(candle[0], unit="ms"), *candle[1:]] for candle in data]
+        data = [[datetime.fromtimestamp(candle[0] / 1000, tz=timezone.utc), *candle[1:]] for candle in data]
         df = pd.DataFrame(data, columns=["date", "open", "high", "low", "close", "volume"])
         df = df.set_index("date").sort_index()
         df.index = pd.to_datetime(df.index)

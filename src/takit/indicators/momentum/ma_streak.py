@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from typing import Annotated
 
-import pandas as pd
+import narwhals as nw
 from pydantic import PositiveInt, StringConstraints, validate_call
 
 from takit.indicators.trend import ma
@@ -8,10 +10,11 @@ from takit.util.base import value_streak
 from takit.validation import config_dict
 
 
+@nw.narwhalify(eager_only=True)
 @validate_call(config=config_dict)
 def moving_average_streak(
-    series: pd.Series, length: PositiveInt = 20, mode: Annotated[str, StringConstraints(pattern="sma|ema")] = "sma"
-) -> pd.DataFrame:
+    series: nw.Series, length: PositiveInt = 20, mode: Annotated[str, StringConstraints(pattern="sma|ema")] = "sma"
+) -> nw.DataFrame:
     """
     Moving average streak.
 
@@ -23,21 +26,22 @@ def moving_average_streak(
     Returns:
         DataFrame with moving average and streak values
     """
-    df = series.to_frame()
-
     col_name = f"{mode.upper()}{length}"
-    df[col_name] = getattr(ma, mode)(series, length=length)
+    ma_values = nw.from_native(getattr(ma, mode)(series, length=length), series_only=True).alias(col_name)
 
-    change = df[col_name].diff()
+    # Compute direction of change: 1 for increase/unchanged, -1 for decrease
+    change = ma_values.diff()
+    temp_df = change.to_frame()
+    direction = temp_df.select(
+        nw.when(nw.col(change.name) >= 0).then(1).otherwise(-1).alias("direction")
+    ).get_column("direction")
 
-    def _wrangle_change(x: float) -> int:
-        return 1 if x >= 0 else -1
+    streak = value_streak(direction, negative_streaks=True).alias(f"{col_name}STREAK")
 
-    change = change.map(_wrangle_change)
-
-    df[f"{col_name}STREAK"] = value_streak(change, negative_streaks=True)
-
-    return df.iloc[:, -2:]
+    native_ns = nw.get_native_namespace(series)
+    return nw.from_native(
+        native_ns.DataFrame({col_name: ma_values.to_native(), streak.name: streak.to_native()}), eager_only=True
+    )
 
 
 ma_streak = moving_average_streak

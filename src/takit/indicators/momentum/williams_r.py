@@ -1,11 +1,15 @@
-import pandas as pd
+from __future__ import annotations
+
+import narwhals as nw
 from pydantic import PositiveInt, validate_call
 
-from takit.validation import config_dict, ohlc_schema
+from takit.util.rolling import rolling_max, rolling_min
+from takit.validation import config_dict, validate_ohlc
 
 
+@nw.narwhalify(eager_only=True)
 @validate_call(config=config_dict)
-def williams_r(ohlc: pd.DataFrame, lookback_length: PositiveInt = 14) -> pd.Series:
+def williams_r(ohlc: nw.DataFrame, lookback_length: PositiveInt = 14) -> nw.Series:
     """
     Williams %R.
 
@@ -27,11 +31,13 @@ def williams_r(ohlc: pd.DataFrame, lookback_length: PositiveInt = 14) -> pd.Seri
     Returns:
         Williams %R values
     """
-    ohlc = ohlc_schema(min_length=lookback_length).validate(ohlc)
+    ohlc = validate_ohlc(ohlc, min_length=lookback_length)
 
-    lookback_high = ohlc["high"].rolling(window=lookback_length, min_periods=1).max()
-    lookback_low = ohlc["low"].rolling(window=lookback_length, min_periods=1).min()
-    return (-100 * (lookback_high - ohlc["close"]) / (lookback_high - lookback_low)).rename(f"WR{lookback_length}")
+    lookback_high = rolling_max(ohlc.get_column("high"), lookback_length, min_samples=1)
+    lookback_low = rolling_min(ohlc.get_column("low"), lookback_length, min_samples=1)
+    close = ohlc.get_column("close")
+
+    return (-100 * (lookback_high - close) / (lookback_high - lookback_low)).alias(f"WR{lookback_length}")
 
 
 wr = williams_r

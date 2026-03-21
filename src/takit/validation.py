@@ -1,72 +1,48 @@
 from typing import Annotated
 
-import pandera.pandas as pa
+import narwhals as nw
 from pydantic import ConfigDict, StringConstraints
 
 PriceCol = Annotated[str, StringConstraints(pattern="close|high|low|open")]
 
-ordered_index_schema = pa.Index(
-    checks=[
-        pa.Check(
-            lambda i: i.is_monotonic_increasing, element_wise=False, error="Index must be monotonically increasing"
-        )
-    ],
-    nullable=False,
-    unique=True,
-)
-
-ohlc_column_schema = pa.Column(float, checks=[pa.Check.greater_than(0)])
-
-
-def ohlc_schema(min_length: int = 1) -> pa.DataFrameSchema:
-    """
-    Schema for OHLC data.
-
-    Args:
-        min_length: Minimum length of the series
-
-    Returns:
-        Schema for OHLC data
-    """
-    return pa.DataFrameSchema(
-        columns={
-            "open": ohlc_column_schema,
-            "high": ohlc_column_schema,
-            "low": ohlc_column_schema,
-            "close": ohlc_column_schema,
-        },
-        checks=[
-            pa.Check(
-                lambda df: df.shape[0] > min_length,
-                element_wise=False,
-                error=f"DataFrame must have at least {min_length} rows.",
-            )
-        ],
-        index=ordered_index_schema,
-    )
-
-
-def ta_series_schema(min_length: int = 1, dtype: type = float) -> pa.SeriesSchema:
-    """
-    Return a schema for a series to be used in technical analysis.
-
-    Args:
-        min_length: Minimum length of the series
-        dtype: Data type of the series
-    """
-    return pa.SeriesSchema(
-        dtype,
-        checks=[
-            pa.Check.greater_than_or_equal_to(0),
-            pa.Check(
-                lambda s: s.size > min_length,
-                element_wise=False,
-                error=f"Series must have at least {min_length} values.",
-            ),
-        ],
-        index=ordered_index_schema,
-        nullable=False,
-    )
-
-
 config_dict = ConfigDict(arbitrary_types_allowed=True)
+
+OHLC_COLUMNS = {"open", "high", "low", "close"}
+
+
+def validate_ohlc(df: nw.DataFrame, min_length: int = 1) -> nw.DataFrame:
+    """
+    Validate OHLC DataFrame.
+
+    Args:
+        df: Input DataFrame (narwhals-wrapped)
+        min_length: Minimum number of rows required
+
+    Raises:
+        ValueError: If validation fails
+    """
+    missing = OHLC_COLUMNS - set(df.columns)
+    if missing:
+        msg = f"Missing OHLC columns: {missing}"
+        raise ValueError(msg)
+    if df.shape[0] <= min_length:
+        msg = f"DataFrame must have more than {min_length} rows."
+        raise ValueError(msg)
+    return df
+
+
+def validate_series(series: nw.Series, min_length: int = 1) -> nw.Series:
+    """
+    Validate a Series for technical analysis.
+
+    Args:
+        series: Input Series (narwhals-wrapped)
+        min_length: Minimum number of values required
+
+    Raises:
+        ValueError: If validation fails
+    """
+    if series.len() <= min_length:
+        msg = f"Series must have more than {min_length} values."
+        raise ValueError(msg)
+    return series

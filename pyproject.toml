@@ -19,14 +19,21 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
 ]
 dependencies = [
-    "pandas>=2",
-    "pandera>=0.25.0",
-    "pyarrow>=21.0.0",
+    "narwhals>=1.20",
     "pydantic>=2",
 ]
 
 [project.optional-dependencies]
+pandas = [
+    "pandas>=2",
+    "pyarrow>=21.0.0",
+]
+polars = [
+    "polars>=1",
+]
 data = [
+    "pandas>=2",
+    "pyarrow>=21.0.0",
     "binance-connector",
 ]
 cli = [
@@ -50,6 +57,9 @@ dev = [
 ]
 test = [
     "coverage[toml]",
+    "pandas>=2",
+    "polars>=1",
+    "pyarrow>=21.0.0",
     "pytest",
     "pytest-cov",
     "pytest-pretty",

@@ -1,11 +1,14 @@
-import pandas as pd
+from __future__ import annotations
+
+import narwhals as nw
 from pydantic import validate_call
 
-from takit.validation import config_dict, ta_series_schema
+from takit.validation import config_dict, validate_series
 
 
+@nw.narwhalify(eager_only=True)
 @validate_call(config=config_dict)
-def relative_change(series: pd.Series, start: pd.Timestamp | None = None) -> pd.Series:
+def relative_change(series: nw.Series, start: str | None = None) -> nw.Series:
     """
     Relative Change (RC).
 
@@ -13,11 +16,17 @@ def relative_change(series: pd.Series, start: pd.Timestamp | None = None) -> pd.
 
     Args:
         series: Input series with DatetimeIndex
-        start: Start date. If None, use the first date in the series.
+        start: Start date (ISO 8601 string). If None, use the first value.
+            Note: Date filtering requires a pandas Series with a DatetimeIndex.
     """
-    series = ta_series_schema(min_length=2).validate(series)
+    series = validate_series(series, min_length=2)
 
     if start is not None:
-        series = series.loc[start:]
+        # Date filtering via index is a pandas-specific operation.
+        # Fall back to native for this operation.
+        native = nw.to_native(series)
+        native = native.loc[start:]
+        series = nw.from_native(native, series_only=True)
 
-    return (series / series.iloc[0] - 1).rename("RC")
+    first_value = series[0]
+    return (series / first_value - 1).alias("RC")

@@ -1,15 +1,16 @@
-import numpy as np
-import pandas as pd
-import pandera.pandas as pa
+from __future__ import annotations
+
+import narwhals as nw
 from pydantic import PositiveInt, validate_call
 
-from takit.validation import config_dict, ta_series_schema
+from takit.validation import config_dict, validate_series
 
 
-@pa.check_types
+@nw.narwhalify(eager_only=True)
+@validate_call(config=config_dict)
 def simple_moving_average(
-    series: pd.Series, length: PositiveInt, *, validate: bool = True, min_periods: int | None = None
-) -> pd.Series:
+    series: nw.Series, length: PositiveInt, *, validate: bool = True, min_periods: int | None = None
+) -> nw.Series:
     """
     Simple Moving Average (SMA).
 
@@ -24,18 +25,19 @@ def simple_moving_average(
     """
     if validate:
         min_length = min(length, min_periods) if min_periods else length
-        series = ta_series_schema(min_length=min_length).validate(series)
+        series = validate_series(series, min_length=min_length)
 
-    return series.rolling(window=length, min_periods=min_periods).mean().rename(f"SMA{length}")
+    return series.rolling_mean(window_size=length, min_samples=min_periods).alias(f"SMA{length}")
 
 
 sma = simple_moving_average
 
 
+@nw.narwhalify(eager_only=True)
 @validate_call(config=config_dict)
 def exponential_moving_average(
-    series: pd.Series, length: PositiveInt, *, validate: bool = True, min_periods: int | None = None
-) -> pd.Series:
+    series: nw.Series, length: PositiveInt, *, validate: bool = True, min_periods: int | None = None
+) -> nw.Series:
     """
     Exponential Moving Average (EMA).
 
@@ -50,17 +52,18 @@ def exponential_moving_average(
     """
     if validate:
         min_length = min(length, min_periods) if min_periods else length
-        series = ta_series_schema(min_length=min_length).validate(series)
+        series = validate_series(series, min_length=min_length)
 
     min_periods = length if min_periods is None else min_periods
-    return series.ewm(span=length, adjust=False, min_periods=min_periods).mean()
+    return series.ewm_mean(span=length, adjust=False, min_samples=min_periods)
 
 
 ema = exponential_moving_average
 
 
+@nw.narwhalify(eager_only=True)
 @validate_call(config=config_dict)
-def relative_moving_average(series: pd.Series, length: PositiveInt, *, validate: bool = True) -> pd.Series:
+def relative_moving_average(series: nw.Series, length: PositiveInt, *, validate: bool = True) -> nw.Series:
     """
     Relative Moving Average (RMA).
 
@@ -77,14 +80,10 @@ def relative_moving_average(series: pd.Series, length: PositiveInt, *, validate:
         Relative moving average values of the input series
     """
     if validate:
-        series = ta_series_schema(min_length=length).validate(series)
+        series = validate_series(series, min_length=length)
 
-    data = series.to_numpy()
-    rma = np.empty_like(data)
-    rma[0] = data[0]  # Initialize with the first value
-    for i in range(1, len(data)):
-        rma[i] = (rma[i - 1] * (length - 1) + data[i]) / length
-    return pd.Series(rma, index=series.index)
+    # RMA is equivalent to EWM with alpha=1/length, adjust=False
+    return series.ewm_mean(alpha=1.0 / length, adjust=False, min_samples=1)
 
 
 rma = relative_moving_average

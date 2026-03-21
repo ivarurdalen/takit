@@ -1,11 +1,14 @@
-import pandas as pd
+from __future__ import annotations
+
+import narwhals as nw
 from pydantic import PositiveInt, validate_call
 
-from takit.validation import config_dict, ta_series_schema
+from takit.validation import config_dict, validate_series
 
 
+@nw.narwhalify(eager_only=True)
 @validate_call(config=config_dict)
-def relative_strength_index(series: pd.Series, length: PositiveInt = 14) -> pd.Series:
+def relative_strength_index(series: nw.Series, length: PositiveInt = 14) -> nw.Series:
     """
     Relative Strength Index (RSI).
 
@@ -18,24 +21,22 @@ def relative_strength_index(series: pd.Series, length: PositiveInt = 14) -> pd.S
         2. RS = Relative Strength = Relative Moving Average (RMA) of gains / Relative Moving Average (RMA) of losses
 
     """
-    series = ta_series_schema(min_length=length).validate(series)
+    series = validate_series(series, min_length=length)
 
-    df = series.to_frame(name="series").copy()
+    change = series.diff()
 
-    df["change"] = df["series"].diff()
-    df = df.dropna(axis=0, how="any")
-    df["gain"] = df["change"].clip(lower=0)
-    df["loss"] = df["change"].clip(upper=0).abs()
+    gain = change.clip(lower_bound=0)
+    loss = change.clip(upper_bound=0).abs()
 
     # Using Exponential Weighted Moving Average (ewm), where alpha is the smoothing factor.
     alpha = 1 / length
-    df["avg_gain"] = df["gain"].ewm(alpha=alpha, min_periods=length).mean()
-    df["avg_loss"] = df["loss"].ewm(alpha=alpha, min_periods=length).mean()
+    avg_gain = gain.ewm_mean(alpha=alpha, min_samples=length, adjust=True)
+    avg_loss = loss.ewm_mean(alpha=alpha, min_samples=length, adjust=True)
 
-    df["relative_strength"] = df["avg_gain"] / df["avg_loss"]
-    df[f"RSI{length}"] = 100 - 100 / (1 + df["relative_strength"])
+    relative_strength = avg_gain / avg_loss
+    rsi_values = 100 - 100 / (1 + relative_strength)
 
-    return df[f"RSI{length}"]
+    return rsi_values.alias(f"RSI{length}")
 
 
 rsi = relative_strength_index

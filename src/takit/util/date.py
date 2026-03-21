@@ -1,6 +1,7 @@
-import pandas as pd
+from datetime import datetime, timezone
 
 
 def to_milliseconds(date: str) -> int:
     """Convert an ISO 8601 date string to milliseconds since the epoch."""
-    return int(pd.Timestamp(date).timestamp() * 1000)
+    dt = datetime.strptime(date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+    return int(dt.timestamp() * 1000)

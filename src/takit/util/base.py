@@ -1,7 +1,9 @@
-import pandas as pd
+from __future__ import annotations
+
+import narwhals as nw
 
 
-def value_streak(series: pd.Series, *, negative_streaks: bool = False) -> pd.Series:
+def value_streak(series: nw.Series, *, negative_streaks: bool = False) -> nw.Series:
     """
     Value streak.
 
@@ -15,12 +17,19 @@ def value_streak(series: pd.Series, *, negative_streaks: bool = False) -> pd.Ser
     Returns:
         Streak values of the input series
     """
-    # Identify where value changes
-    groups = (series != series.shift()).cumsum()
-    # Count the streak within each group
-    streak = series.groupby(groups).cumcount() + 1
+    values = series.to_list()
+    streaks = []
+    count = 0
+    prev = None
+    for v in values:
+        if v == prev:
+            count += 1
+        else:
+            count = 1
+            prev = v
+        if negative_streaks and v is not None and v < 0:
+            streaks.append(-count)
+        else:
+            streaks.append(count)
 
-    if negative_streaks:
-        # For negative values, make streak count negative
-        return streak.where(series >= 0, -streak)
-    return streak
+    return nw.new_series(series.name, streaks, backend=nw.get_native_namespace(series))

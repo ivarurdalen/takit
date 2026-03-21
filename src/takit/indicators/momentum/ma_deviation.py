@@ -1,16 +1,19 @@
+from __future__ import annotations
+
 from typing import Annotated
 
-import pandas as pd
+import narwhals as nw
 from pydantic import PositiveInt, StringConstraints, validate_call
 
 from takit.indicators.trend import ma
 from takit.validation import config_dict
 
 
+@nw.narwhalify(eager_only=True)
 @validate_call(config=config_dict)
 def moving_average_deviation(
-    series: pd.Series, length: PositiveInt = 140, mode: Annotated[str, StringConstraints(pattern="sma|ema")] = "sma"
-) -> pd.Series:
+    series: nw.Series, length: PositiveInt = 140, mode: Annotated[str, StringConstraints(pattern="sma|ema")] = "sma"
+) -> nw.Series:
     """
     Moving average deviation (MAD).
 
@@ -27,7 +30,7 @@ def moving_average_deviation(
     Returns:
         MAD values of the input series
     """
-    return (series / getattr(ma, mode)(series, length=length)).rename(f"MAD_{mode.upper()}{length}")
+    return (series / getattr(ma, mode)(series, length=length)).alias(f"MAD_{mode.upper()}{length}")
 
 
 mad = moving_average_deviation
