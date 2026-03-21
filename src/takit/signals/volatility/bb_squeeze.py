@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import narwhals as nw
 from pydantic import PositiveFloat, PositiveInt, validate_call
 

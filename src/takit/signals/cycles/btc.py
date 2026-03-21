@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import narwhals as nw
 
 from takit.indicators.trend import simple_moving_average
